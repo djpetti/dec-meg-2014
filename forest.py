@@ -7,6 +7,7 @@ Simple prediction of the class labels of the test set by:
 - Using a linear classifier (logistic regression).
 """
 
+import math
 import numpy as np
 import pylab as pl
 import sys, getopt
@@ -20,6 +21,9 @@ from scipy.io import loadmat
 from scipy.signal import butter, lfilter
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 
 def butter_bandpass(lowcut, highcut, fs, order=5):
     nyq = 0.5*fs
@@ -251,9 +255,9 @@ if __name__ == '__main__':
 
     print "DecMeg2014: https://www.kaggle.com/c/decoding-the-human-brain"
     print
-    subjects_train = [1] # use range(1, 17) for all subjects
+    subjects_train = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16] # use range(1, 17) for all subjects
     #print "Training on subjects", subjects_train 
-    subjects_val = [4, 11]
+    subjects_val = [5, 15]
 
     # We throw away all the MEG data outside the first 0.5sec from when
     # the visual stimulus start:
@@ -323,18 +327,32 @@ if __name__ == '__main__':
     g =   1.0/float((3*n_features))
     print g
 
+    print "Training."
 
  
-    clf = RandomForestClassifier(n_estimators=int(reg), max_depth=None,min_samples_split=1, random_state=144, n_jobs=4);
-  
+    clf = RandomForestClassifier(n_estimators=850, max_depth=None, max_features=int(math.sqrt(n_features)), min_samples_split=100, random_state=144, n_jobs=4);
+    clf.fit(X_train, y_train)
+    print "Validation set score: RF " , clf.score(X_val, y_val)
+ 
+    clf_etree = ExtraTreesClassifier(n_estimators=1000, max_depth=None, max_features=int(math.sqrt(n_features)), min_samples_split=100, random_state=144, n_jobs=4);
+    clf_etree.fit(X_train, y_train)
+    print "Validation set score: ERF " , clf_etree.score(X_val, y_val)
+
+    clf_boost = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1),algorithm="SAMME", n_estimators=500, random_state=74494, learning_rate=0.8) 
+    clf_boost.fit(X_train, y_train)
+    print "Validation set score: ABOOST " , clf_boost.score(X_val, y_val)
+
+
+    #clf_gboost = GradientBoostingClassifier(n_estimators=int(reg), random_state=74494, learning_rate=0.2) 
+    #clf_gboost.fit(X_train, y_train)
+    #print "Validation set score:LR " , clf_gboost.score(X_val, y_val)
+
+
     print "Classifier:"
     print clf, clf.get_params()
-
-
-    print "Training."
-    clf.fit(X_train, y_train)
-        
-    print "Validation set score: " , clf.score(X_val, y_val)
+    print clf_etree, clf_etree.get_params()
+    print clf_boost, clf_boost.get_params()
+    
 
     if(fe==1): #L1 norm based feature elimination
         clf_fe = LogisticRegression(C=1000,penalty='l1',random_state=0)
