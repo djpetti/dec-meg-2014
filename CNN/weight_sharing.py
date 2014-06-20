@@ -17,7 +17,8 @@ class Cnn(feedforward.Classifier):
   # There is no specified input layer for the fully connected part of the Cnn.
   # (Technically, there is, but it is implemented automatically.) Therefore, the
   # first item in "layers" is actually the size of the first hidden layer.
-  def __init__(self, img_shape, filter_shapes, layers, pool_sizes = "default", *args, **kwargs):
+  def __init__(self, img_shape, filter_shapes, layers, activation,
+      pool_sizes = "default", *args, **kwargs):
     self.img_shape = img_shape
     self.conv_weights = []
     self.conv_biases = []
@@ -25,6 +26,8 @@ class Cnn(feedforward.Classifier):
     self.pool_sizes = []
     self.pool_mult_biases = []
     self.pool_add_biases = []
+
+    self.activation_func = self._build_activation(activation)
 
     if pool_sizes != "default":
       for shape, size in zip(filter_shapes, pool_sizes):
@@ -39,7 +42,7 @@ class Cnn(feedforward.Classifier):
     flat_size = reduce(mul, self.layer_shapes[-1], 1)
     layers.insert(0, flat_size)
 
-    super(Cnn, self).__init__(layers, *args, no_x = True, **kwargs)
+    super(Cnn, self).__init__(layers, activation, *args, no_x = True, **kwargs)
 
   # Override so things get run in the correct order.
   def _create_forward_map(self, *args, **kwargs):
@@ -110,8 +113,7 @@ class Cnn(feedforward.Classifier):
 
       # Account for the bias. Since it is a vector, we first need to reshape it
       # to (1, n_filters, 1, 1).
-      # TODO (danielp): Have it use the specified activation.
-      layer_outputs = TT.nnet.sigmoid(pooled_out + \
+      layer_outputs = self.activation_func(pooled_out + \
           self.conv_biases[i].dimshuffle("x", 0, "x", "x"))
 
     # Concatenate output maps into one long vector and set it as the input for
