@@ -57,7 +57,7 @@ class Cnn(feedforward.Classifier):
 
     # Initialize weight (kernel) values.
     fan_in = np.prod(filter_shape[1:])
-    rng = np.random.RandomState(23455)
+    rng = np.random.RandomState()
     weight_values = np.asarray(rng.uniform(
         low = -np.sqrt(3. / fan_in),
         high = np.sqrt(3. / fan_in),
@@ -122,10 +122,6 @@ class Cnn(feedforward.Classifier):
 
   def _compile(self):
     self._compute = theano.function([self._inputs], self.hiddens + [self.y])
-
-  def predict(self, inputs):
-    self._compile()
-    return self._compute(inputs)[-1]
 
   @property
   def params(self):
