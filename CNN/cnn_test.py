@@ -14,6 +14,7 @@ print "Width: %d, Height: %d" % (width, height)
 
 # Put image in 4d tensor.
 img = img.swapaxes(0, 2).swapaxes(1, 2).reshape(1, 3, width, height)
+print img.shape
 
-cnn = Cnn(img.shape, [(2, 3, 9, 9)], layers = (948832, 10, 10), activation = "sigmoid")
+cnn = Cnn(img.shape, [(3, 3, 9, 9), (3, 3, 9, 9)], layers = (948832, 10, 10), activation = "sigmoid")
 print cnn.predict(img)

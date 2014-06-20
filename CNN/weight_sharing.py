@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from operator import add, sub, floordiv
+
 from theanets import feedforward
 from theano.tensor.nnet import conv
 from theano.tensor.signal import downsample
@@ -61,19 +63,28 @@ class Cnn(feedforward.Classifier):
   def _make_graph(self):
     self._inputs = TT.dtensor4("inputs")
     layer_outputs = self._inputs
+    next_shape = list(self.img_shape)
     for i in range(0, len(self.conv_weights)):
       # Perform the convolution.
-      # TODO (danielp): img_shape is going to need to be changed.
+      filter_shape = list(self.filter_shapes[i])
       conv_out = conv.conv2d(layer_outputs, self.conv_weights[i],
-          filter_shape = self.filter_shapes[i],
-          image_shape = self.img_shape)
+          filter_shape = filter_shape,
+          image_shape = next_shape)
+      
+      # Keep track of the shape of our output.
+      next_shape[2:] = map(sub, next_shape[2:], filter_shape[2:])
+      next_shape[2:] = map(add, next_shape[2:], [1, 1])
+      next_shape[1] = filter_shape[1]
 
       # Downsample the feature maps.
       pooled_out = downsample.max_pool_2d(conv_out, self.pool_sizes[i],
           ignore_border = True)
+      
+      next_shape[2:] = map(floordiv, next_shape[2:], self.pool_sizes[i])
 
       # Account for the bias. Since it is a vector, we first need to reshape it
       # to (1, n_filters, 1, 1).
+      # TODO (danielp): Have it use the specified activation.
       layer_outputs = TT.nnet.sigmoid(pooled_out + \
           self.conv_biases[i].dimshuffle("x", 0, "x", "x"))
 
@@ -82,7 +93,8 @@ class Cnn(feedforward.Classifier):
     self.x = TT.flatten(layer_outputs)
 
   def _compile(self):
-    self._compute = theano.function([self._inputs], self.hiddens + [self.y])
+    #self._compute = theano.function([self._inputs], self.hiddens + [self.y])
+    self._compute = theano.function([self._inputs], self.x.shape)
 
   def predict(self, inputs):
     self._compile()
