@@ -123,8 +123,8 @@ class Cnn(feedforward.Classifier):
   def _compile(self):
     self._compute = theano.function([self._inputs], self.hiddens + [self.y])
 
-  @property
-  def params(self):
-    params = super(feedforward.Classifier, self).params
+  def params(self, *args, **kwargs):
+    params = super(Cnn, self).params(*args, **kwargs)
     params.extend(self.conv_weights)
     params.extend(self.conv_biases)
+    return params
