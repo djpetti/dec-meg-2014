@@ -13,7 +13,7 @@ class Cnn(feedforward.Classifier):
   def __init__(self, img_shape, filter_shapes, pool_sizes = "default", *args, **kwargs):
     self.img_shape = img_shape
     self.conv_weights = []
-    self.biases = []
+    self.conv_biases = []
     self.filter_shapes = []
     self.pool_sizes = []
     self.pool_mult_biases = []
@@ -26,9 +26,12 @@ class Cnn(feedforward.Classifier):
       for shape in filter_shapes:
         self._add_layer_pair(shape, (2, 2))
 
-    self._make_graph()
-
     super(Cnn, self).__init__(*args, no_x = True, **kwargs)
+
+  # Override so things get run in the correct order.
+  def _create_forward_map(self, *args, **kwargs):
+    self._make_graph()
+    return super(Cnn, self)._create_forward_map(*args, **kwargs)
 
   def _add_layer_pair(self, filter_shape, pool_size):
     # Check for the same number of feature maps.
@@ -49,7 +52,7 @@ class Cnn(feedforward.Classifier):
     # Initialize the biases.
     bias_values = np.zeros((filter_shape[0],), dtype = theano.config.floatX)
     biases = theano.shared(value = bias_values, name = "biases")
-    self.biases.append(biases)
+    self.conv_biases.append(biases)
 
     # Set up subsampling parameters.
     self.pool_sizes.append(pool_size)
@@ -72,7 +75,7 @@ class Cnn(feedforward.Classifier):
       # Account for the bias. Since it is a vector, we first need to reshape it
       # to (1, n_filters, 1, 1).
       layer_outputs = TT.nnet.sigmoid(pooled_out + \
-          self.biases[i].dimshuffle("x", 0, "x", "x"))
+          self.conv_biases[i].dimshuffle("x", 0, "x", "x"))
 
     # Concatenate output maps into one long vector and set it as the input for
     # the normal part of our network.
@@ -89,4 +92,4 @@ class Cnn(feedforward.Classifier):
   def params(self):
     params = super(feedforward.Classifier, self).params
     params.extend(self.conv_weights)
-    params.extend(self.biases)
+    params.extend(self.conv_biases)
