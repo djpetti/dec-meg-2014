@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
-from operator import add, sub, floordiv
+from operator import add, sub, floordiv, mul
+
+import copy
 
 from theanets import feedforward
 from theano.tensor.nnet import conv
@@ -12,7 +14,10 @@ import theano.tensor as TT
 
 # A class for representing a neural network with weight sharing.
 class Cnn(feedforward.Classifier):
-  def __init__(self, img_shape, filter_shapes, pool_sizes = "default", *args, **kwargs):
+  # There is no specified input layer for the fully connected part of the Cnn.
+  # (Technically, there is, but it is implemented automatically.) Therefore, the
+  # first item in "layers" is actually the size of the first hidden layer.
+  def __init__(self, img_shape, filter_shapes, layers, pool_sizes = "default", *args, **kwargs):
     self.img_shape = img_shape
     self.conv_weights = []
     self.conv_biases = []
@@ -28,7 +33,13 @@ class Cnn(feedforward.Classifier):
       for shape in filter_shapes:
         self._add_layer_pair(shape, (2, 2))
 
-    super(Cnn, self).__init__(*args, no_x = True, **kwargs)
+    # Figure out and set the correct number of inputs.
+    self.__find_shapes()
+    layers = list(layers)
+    flat_size = reduce(mul, self.layer_shapes[-1], 1)
+    layers.insert(0, flat_size)
+
+    super(Cnn, self).__init__(layers, *args, no_x = True, **kwargs)
 
   # Override so things get run in the correct order.
   def _create_forward_map(self, *args, **kwargs):
@@ -59,28 +70,43 @@ class Cnn(feedforward.Classifier):
     # Set up subsampling parameters.
     self.pool_sizes.append(pool_size)
 
-  # Builds a graph for the CNN.
-  def _make_graph(self):
-    self._inputs = TT.dtensor4("inputs")
-    layer_outputs = self._inputs
+  # Figure out the shapes of each convolution layer.
+  def __find_shapes(self):
+    self.layer_shapes = []
     next_shape = list(self.img_shape)
+    self.layer_shapes.append(list(self.img_shape))
+    
     for i in range(0, len(self.conv_weights)):
-      # Perform the convolution.
       filter_shape = list(self.filter_shapes[i])
-      conv_out = conv.conv2d(layer_outputs, self.conv_weights[i],
-          filter_shape = filter_shape,
-          image_shape = next_shape)
       
-      # Keep track of the shape of our output.
+      # Convolution.
       next_shape[2:] = map(sub, next_shape[2:], filter_shape[2:])
       next_shape[2:] = map(add, next_shape[2:], [1, 1])
       next_shape[1] = filter_shape[1]
 
+      # Max pooling.
+      next_shape[2:] = map(floordiv, next_shape[2:], self.pool_sizes[i])
+
+      # The fun copying stuff is so new changes to next_shape don't modify
+      # references already in the list.
+      self.layer_shapes.append([])
+      for num in next_shape:
+        cop = copy.deepcopy(num)
+        self.layer_shapes[-1].append(cop)
+  
+  # Builds a graph for the CNN.
+  def _make_graph(self):
+    self._inputs = TT.dtensor4("inputs")
+    layer_outputs = self._inputs
+    for i in range(0, len(self.conv_weights)):
+      # Perform the convolution.
+      conv_out = conv.conv2d(layer_outputs, self.conv_weights[i],
+          filter_shape = self.filter_shapes[i],
+          image_shape = self.layer_shapes[i])
+      
       # Downsample the feature maps.
       pooled_out = downsample.max_pool_2d(conv_out, self.pool_sizes[i],
           ignore_border = True)
-      
-      next_shape[2:] = map(floordiv, next_shape[2:], self.pool_sizes[i])
 
       # Account for the bias. Since it is a vector, we first need to reshape it
       # to (1, n_filters, 1, 1).
@@ -93,12 +119,11 @@ class Cnn(feedforward.Classifier):
     self.x = TT.flatten(layer_outputs)
 
   def _compile(self):
-    #self._compute = theano.function([self._inputs], self.hiddens + [self.y])
-    self._compute = theano.function([self._inputs], self.x.shape)
+    self._compute = theano.function([self._inputs], self.hiddens + [self.y])
 
   def predict(self, inputs):
     self._compile()
-    return self._compute(inputs)
+    return self._compute(inputs)[-1]
 
   @property
   def params(self):
