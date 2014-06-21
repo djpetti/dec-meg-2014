@@ -121,13 +121,14 @@ class Cnn(feedforward.Classifier):
       layer_outputs = self.activation_func(pooled_out + \
           self.conv_biases[i].dimshuffle("x", 0, "x", "x"))
 
-    # Concatenate output maps into one long vector and set it as the input for
-    # the normal part of our network.
-    self.x = TT.flatten(layer_outputs, outdim = 2)
- 
+    # Concatenate output maps into one big matrix where each row is the
+    # concatenation of all the feature maps from one item in the batch.
+    next_shape = self.layer_shapes[i + 1]
+    new_shape = (next_shape[0], reduce(mul, next_shape[1:], 1))
+    self.x = layer_outputs.reshape(new_shape)
+
   def _compile(self):
-    #self._theano_compute = theano.function([self._inputs], self.hiddens + [self.y])
-    self._theano_compute = theano.function([self._inputs], self.x.shape)
+    self._theano_compute = theano.function([self._inputs], self.hiddens + [self.y])
   
   def _compute(self, inputs):
     inputs = self.__auto_reshape(inputs)
