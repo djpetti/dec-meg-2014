@@ -96,6 +96,11 @@ class Cnn(feedforward.Classifier):
       for num in next_shape:
         cop = copy.deepcopy(num)
         self.layer_shapes[-1].append(cop)
+
+  # Automatically reshapes an input to match the image shape.
+  def __auto_reshape(self, inputs): 
+    ret = inputs.reshape(self.img_shape) 
+    return ret
   
   # Builds a graph for the CNN.
   def _make_graph(self):
@@ -118,13 +123,23 @@ class Cnn(feedforward.Classifier):
 
     # Concatenate output maps into one long vector and set it as the input for
     # the normal part of our network.
-    self.x = TT.flatten(layer_outputs)
-
+    self.x = TT.flatten(layer_outputs, outdim = 2)
+ 
   def _compile(self):
-    self._compute = theano.function([self._inputs], self.hiddens + [self.y])
+    #self._theano_compute = theano.function([self._inputs], self.hiddens + [self.y])
+    self._theano_compute = theano.function([self._inputs], self.x.shape)
+  
+  def _compute(self, inputs):
+    inputs = self.__auto_reshape(inputs)
+    return self._theano_compute(inputs)
 
   def params(self, *args, **kwargs):
     params = super(Cnn, self).params(*args, **kwargs)
     params.extend(self.conv_weights)
     params.extend(self.conv_biases)
     return params
+
+  @property
+  def inputs(self):
+    return [self._inputs, self.k] 
+    
