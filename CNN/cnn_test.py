@@ -16,5 +16,5 @@ print "Width: %d, Height: %d" % (width, height)
 img = img.swapaxes(0, 2).swapaxes(1, 2).reshape(1, 3, width, height)
 
 cnn = Cnn(img.shape, [(3, 3, 9, 9), (3, 3, 9, 9)], layers = (10, 10),
-    activation = "sigmoid")
+    activation = "sigmoid", accept_2d_inputs = False)
 print cnn.predict(img)

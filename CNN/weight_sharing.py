@@ -46,7 +46,9 @@ class Cnn(feedforward.Classifier):
     # Figure out and set the correct number of inputs.
     self.__find_shapes()
     layers = list(layers)
-    flat_size = reduce(mul, self.layer_shapes[-1], 1)
+    flat_size = reduce(mul, self.layer_shapes[-1][1:], 1)
+    print self.layer_shapes[-1]
+    print "flat_size: " + str(flat_size)
     layers.insert(0, flat_size)
 
     super(Cnn, self).__init__(layers, activation, *args, no_x = True, **kwargs)
@@ -132,6 +134,7 @@ class Cnn(feedforward.Classifier):
     # concatenation of all the feature maps from one item in the batch.
     next_shape = self.layer_shapes[i + 1]
     new_shape = (next_shape[0], reduce(mul, next_shape[1:], 1))
+    print "New Shape: " + str(new_shape)
     self.x = layer_outputs.reshape(new_shape)
 
   def _compile(self):
