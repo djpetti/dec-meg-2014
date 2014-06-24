@@ -27,6 +27,13 @@ class Cnn(feedforward.Classifier):
     self.pool_mult_biases = []
     self.pool_add_biases = []
 
+    # The CNN is designed to work with normal trainers, which generally
+    # provide the input data for the network as a 2d matrix where each row is
+    # one item in a minibatch, not in the 4d format that is more logical for
+    # CNN's. If this option is set, the CNN will expect input in a flattenned 2d
+    # form and automatically reshape it back to a 4d form.
+    self.twod_inputs = kwargs.get("accept_2d_inputs", True)
+
     self.activation_func = self._build_activation(activation)
 
     if pool_sizes != "default":
@@ -97,15 +104,15 @@ class Cnn(feedforward.Classifier):
         cop = copy.deepcopy(num)
         self.layer_shapes[-1].append(cop)
 
-  # Automatically reshapes an input to match the image shape.
-  def __auto_reshape(self, inputs): 
-    ret = inputs.reshape(self.img_shape) 
-    return ret
-  
   # Builds a graph for the CNN.
   def _make_graph(self):
-    self._inputs = TT.dtensor4("inputs")
-    layer_outputs = self._inputs
+    if not self.twod_inputs:
+      self._inputs = TT.dtensor4("inputs")
+      layer_outputs = self._inputs
+    else:
+      self._inputs = TT.matrix("inputs")
+      layer_outputs = self._inputs.reshape(self.img_shape)
+    
     for i in range(0, len(self.conv_weights)):
       # Perform the convolution.
       conv_out = conv.conv2d(layer_outputs, self.conv_weights[i],
@@ -128,12 +135,8 @@ class Cnn(feedforward.Classifier):
     self.x = layer_outputs.reshape(new_shape)
 
   def _compile(self):
-    self._theano_compute = theano.function([self._inputs], self.hiddens + [self.y])
+    self._compute = theano.function([self._inputs], self.hiddens + [self.y])
   
-  def _compute(self, inputs):
-    inputs = self.__auto_reshape(inputs)
-    return self._theano_compute(inputs)
-
   def params(self, *args, **kwargs):
     params = super(Cnn, self).params(*args, **kwargs)
     params.extend(self.conv_weights)
