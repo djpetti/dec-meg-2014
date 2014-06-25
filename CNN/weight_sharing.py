@@ -3,6 +3,8 @@
 from operator import add, sub, floordiv, mul
 
 import copy
+import cPickle as pickle
+import gzip
 
 from theanets import feedforward
 from theano.tensor.nnet import conv
@@ -146,5 +148,39 @@ class Cnn(feedforward.Classifier):
 
   @property
   def inputs(self):
-    return [self._inputs, self.k] 
+    return [self._inputs, self.k]
+
+  # Save override that also saves CNN-specific parameters.
+  def save(self, filename):
+    opener = gzip.open if filename.lower().endswith(".gz") else open
+    handle = opener(filename, "wb")
+    
+    params = {}
+    params["weights"] = [param.get_value().copy() for param in self.weights]
+    params["biases"] = [param.get_value().copy() for param in self.biases]
+    params["conv_weights"] = \
+        [param.get_value().copy() for param in self.conv_weights]
+    params["conv_biases"] = \
+        [param.get_value().copy() for param in self.conv_biases]
+
+    pickle.dump(params, handle, -1)
+    handle.close()
+
+  # Load override that also loads CNN specific parameters.
+  def load(self, filename):
+    opener = gzip.open if filename.lower().endswith(".gz") else open
+    handle = opener(filename, "rb")
+
+    params = pickle.load(handle)
+
+    for target, source in zip(self.weights, params["weights"]):
+      target.set_value(source)
+    for target, source in zip(self.biases, params["biases"]):
+      target.set_value(source)
+    for target, source in zip(self.conv_weights, params["conv_weights"]):
+      target.set_value(source)
+    for target, source in zip(self.conv_biases, params["conv_biases"]):
+      target.set_value(source)
+
+    handle.close()
     
