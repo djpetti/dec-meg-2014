@@ -47,8 +47,6 @@ class Cnn(feedforward.Classifier):
     self.__find_shapes()
     layers = list(layers)
     flat_size = reduce(mul, self.layer_shapes[-1][1:], 1)
-    print self.layer_shapes[-1]
-    print "flat_size: " + str(flat_size)
     layers.insert(0, flat_size)
 
     super(Cnn, self).__init__(layers, activation, *args, no_x = True, **kwargs)

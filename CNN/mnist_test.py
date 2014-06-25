@@ -23,18 +23,6 @@ if not os.path.exists(mnist_name):
 # Load it into memory.
 print "Loading dataset..."
 digits = pickle.load(file(mnist_name))
-"""# Reshape each image.
-print "Reshaping images..."
-sections = []
-for section in digits:
-  reshaped = []
-  for digit in section[0]:
-    reshaped.append(np.reshape(digit, (28, 28)))
-  sections.append(reshaped)
-training = np.asarray(sections[0])
-training_labels = digits[0][1]
-validation = np.asarray(sections[1])
-validation_labels = digits[1][1]"""
 
 train = digits[0][0]
 valid = digits[1][0]
@@ -57,3 +45,7 @@ experiment.add_dataset("valid", (valid, valid_answers), size = 10)
 # Theanets has a bug that requires us to do this manually.
 experiment.add_dataset("cg", digits[0], size = 10)
 experiment.run()
+print "Done!"
+
+# Save it for later use.
+experiment.save("CNN.pkl")
